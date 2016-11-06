@@ -18,6 +18,9 @@ import android.widget.ListView;
 import net.jzapper.android.autoarrival.R;
 import net.jzapper.android.autoarrival.event_list.EventAdapter;
 import net.jzapper.android.autoarrival.receiver.EventAlarmReceiver;
+import net.jzapper.android.autoarrival.sim.SimpleSim;
+
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity
 {
@@ -35,8 +38,12 @@ public class MainActivity extends AppCompatActivity
     @Nullable
     PendingIntent alarmIntent;
 
+    private SimpleSim simpleSim = new SimpleSim();
+
     private long previousTriggeredMs = 0;
     private long startMs = 0;
+
+    private long lastResolveMs = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -52,6 +59,7 @@ public class MainActivity extends AppCompatActivity
 
         Intent intent = new Intent(this, EventAlarmReceiver.class);
         alarmIntent = PendingIntent.getBroadcast(this, 0, intent, 0);
+        lastResolveMs = SystemClock.elapsedRealtime();
     }
 
     @Override
@@ -86,7 +94,8 @@ public class MainActivity extends AppCompatActivity
         eventAdapter.addFirst("Started generating events.");
     }
 
-    public void onStopEvents(View view) {
+    public void onStopEvents(View view)
+    {
         Log.d(TAG, "Cancel Alarm");
 
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
@@ -94,6 +103,17 @@ public class MainActivity extends AppCompatActivity
         alarmManager.cancel(alarmIntent);
 
         eventAdapter.addFirst("Stopped generating events.");
+    }
+
+    public void onResolveRequested(View view)
+    {
+        long deltaMs = SystemClock.elapsedRealtime() - lastResolveMs;
+        lastResolveMs += deltaMs;
+        List<String> eventLogs = simpleSim.resolve(deltaMs);
+        for (String event : eventLogs)
+        {
+            eventAdapter.addFirst(event);
+        }
     }
 
     /**
@@ -109,7 +129,7 @@ public class MainActivity extends AppCompatActivity
             long elapsed = (now - startMs) / 1000;
             long interval = (now - previousTriggeredMs) / 1000;
             previousTriggeredMs = now;
-            eventAdapter.addFirst("Elapsed: " + elapsed + "s, Interval: " + interval + "s");
+            eventAdapter.addFirst("[Resolve Event Trigger] elapsed: " + elapsed + "s, enterval: " + interval + "s");
         }
     }
 }
